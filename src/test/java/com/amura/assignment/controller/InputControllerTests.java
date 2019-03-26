@@ -16,15 +16,8 @@
 package com.amura.assignment.controller;
 
 import static org.junit.Assert.assertEquals;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 import com.amura.assignment.model.Request;
 import com.amura.assignment.model.Response;
-import com.amura.assignment.model.SubMatrixResponse;
 import com.amura.assignment.spring.Application;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -35,7 +28,6 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -46,6 +38,11 @@ import org.springframework.web.context.WebApplicationContext;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 
+/**
+ * Test class to validate API calls for submatrix calculation
+ * @author akashinde
+ *
+ */
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = Application.class)
 @AutoConfigureMockMvc
@@ -57,6 +54,8 @@ public class InputControllerTests {
     @Autowired
     WebApplicationContext webApplicationContext;
 
+    private final static String URI = "/v1/submatrix";
+    
     protected void setUp() {
         mvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
     }
@@ -73,14 +72,17 @@ public class InputControllerTests {
         return objectMapper.readValue(json, clazz);
     }
 
+    /**
+     * Test case to check valid matrix
+     * @throws Exception
+     */
     @Test
     public void testValidMatrix() throws Exception {
-        String uri = "/submatrix";
         Request request = new Request();
         request.setInput("[[1, 0, 0, 0, 0, 1], [0, 1, 1, 1, 0, 0],[0, 1, 1, 1, 0, 0],[0, 0, 0, 1, 0, 0]]");
 
         String inputJson = mapToJson(request);
-        MvcResult mvcResult = mvc.perform(MockMvcRequestBuilders.post(uri)
+        MvcResult mvcResult = mvc.perform(MockMvcRequestBuilders.post(URI)
                 .accept("application/json")
                 .contentType("application/json").content(inputJson)).andReturn();
 
@@ -95,14 +97,17 @@ public class InputControllerTests {
         assertEquals( 3, subMatrixResponse.get("length"));
     }
 
+    /**
+     * Test case to check empty matrix
+     * @throws Exception
+     */
     @Test
     public void testEmptyMatrix() throws Exception {
-        String uri = "/submatrix";
         Request request = new Request();
         request.setInput("[]");
 
         String inputJson = mapToJson(request);
-        MvcResult mvcResult = mvc.perform(MockMvcRequestBuilders.post(uri)
+        MvcResult mvcResult = mvc.perform(MockMvcRequestBuilders.post(URI)
                 .accept("application/json")
                 .contentType("application/json").content(inputJson)).andReturn();
 
@@ -110,19 +115,59 @@ public class InputControllerTests {
         assertEquals(400, status);
     }
 
+    /**
+     * Test case to check null matrix
+     * @throws Exception
+     */
     @Test
     public void testNullInput() throws Exception {
-        String uri = "/submatrix";
         Request request = new Request();
         request.setInput(null);
 
         String inputJson = mapToJson(request);
-        MvcResult mvcResult = mvc.perform(MockMvcRequestBuilders.post(uri)
+        MvcResult mvcResult = mvc.perform(MockMvcRequestBuilders.post(URI)
                 .accept("application/json")
                 .contentType("application/json").content(inputJson)).andReturn();
 
         int status = mvcResult.getResponse().getStatus();
         assertEquals(400, status);
     }
+    
+    /**
+     * Test case to check invalid number of columns
+     * @throws Exception
+     */
+    @Test
+    public void testInValidColumn() throws Exception {
+        Request request = new Request();
+        request.setInput("[[1, 0, 0, 0, 1], [0, 1, 1, 1, 0, 0],[0, 1, 1, 1, 0, 0],[0, 0, 0, 1, 0, 0]]");
 
+        String inputJson = mapToJson(request);
+        MvcResult mvcResult = mvc.perform(MockMvcRequestBuilders.post(URI)
+                .accept("application/json")
+                .contentType("application/json").content(inputJson)).andReturn();
+
+        String content = mvcResult.getResponse().getContentAsString();
+        Response response = (Response) mapFromJson(content, Response.class);
+        assertEquals("Invalid input: varying number of columns", response.getResponse());
+    }
+
+    /**
+     * Test case to check invalid data in matrix
+     * @throws Exception
+     */
+    @Test
+    public void testInValidColumnData() throws Exception {
+        Request request = new Request();
+        request.setInput("[[1, 0, 0, 0,aaa, 1], [0, 1, 1, 1, 0, 0],[0, 1, 1, 1, 0, 0],[0, 0, 0, 1, 0, 0]]");
+
+        String inputJson = mapToJson(request);
+        MvcResult mvcResult = mvc.perform(MockMvcRequestBuilders.post(URI)
+                .accept("application/json")
+                .contentType("application/json").content(inputJson)).andReturn();
+
+        String content = mvcResult.getResponse().getContentAsString();
+        Response response = (Response) mapFromJson(content, Response.class);
+        assertEquals("Invalid input: cannot parse input", response.getResponse());
+    }
 }
